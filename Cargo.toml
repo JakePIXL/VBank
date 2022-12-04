@@ -1,5 +1,5 @@
 [package]
-name = "DistKV"
+name = "dist_kv"
 version = "0.1.0"
 edition = "2021"
 

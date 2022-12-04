@@ -2,7 +2,7 @@ use actix_web::{web, App, HttpServer, Responder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
-use std::{fs, mem};
+use std::{fs};
 use std::fs::File;
 use std::sync::{Arc, Mutex, MutexGuard};
 use tracing::info;
@@ -97,23 +97,25 @@ async fn index() -> impl Responder {
 
     info!("index hit");
 
-    "Hello world!"
+    "DistKV Online"
 }
 
 async fn get_key(kvs: web::Data<Arc<Mutex<HashMap<String, String>>>>, key: web::Path<String>) -> impl Responder {
-    
-    info!("get_key hit");
 
     let kvs = kvs.lock().unwrap();
     match kvs.get(&key.clone()) {
-        Some(value) => format!("{}", value),
-        None => format!("Key not found"),
+        Some(value) => {
+            info!("grabbed key: {}", key);
+            format!("{}", value)
+        },
+        None => {
+            info!("key not found: {}", key);
+            format!("Key not found")
+        },
     }
 }
 
 async fn put_key(kvs: web::Data<Arc<Mutex<HashMap<String, String>>>>, key: web::Path<String>, value: web::Json<String>) -> impl Responder {
-    
-    info!("put_key hit");
     
     let mut kvs = kvs.lock().unwrap();
     kvs.insert(key.to_string(), value.to_string());
@@ -121,14 +123,22 @@ async fn put_key(kvs: web::Data<Arc<Mutex<HashMap<String, String>>>>, key: web::
     // Save the data to disk by calling the `write_kvstore` function.
     write_kvstore(&kvs).expect("Error writing to disk");
 
+    info!("put key: {}", key);
+
     format!("Key inserted")
 }
 
 async fn delete_key(kvs: web::Data<Arc<Mutex<HashMap<String, String>>>>, key: web::Path<String>) -> impl Responder {
     let mut kvs = kvs.lock().unwrap();
     let response = match kvs.remove(&key.clone()) {
-        Some(_) => format!("Key deleted"),
-        None => format!("Key not found"),
+        Some(_) => {
+            info!("deleted key: {}", key);
+            format!("Key deleted")
+        },
+        None => {
+            info!("key not found: {}", key);
+            format!("Key not found")
+        },
     };
 
 
@@ -138,9 +148,8 @@ async fn delete_key(kvs: web::Data<Arc<Mutex<HashMap<String, String>>>>, key: we
 }
 
 async fn list_keys(kvs: web::Data<Arc<Mutex<HashMap<String, String>>>>) -> impl Responder {
-   
-    info!("list_keys hit");
 
+    info!("listing keys");
     let kvs = kvs.lock().unwrap();
     let mut kv_list = KVList { kvs: Vec::new() };
     for (key, value) in kvs.iter() {

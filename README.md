@@ -27,7 +27,7 @@ This request will return the value associated with the given key in the key-valu
 
 `PUT /{key}`
 
-This request will insert the given key and value into the key-value store. The value should be provided in the request body as a JSON string.
+This request will insert the given key and value into the key-value store (Will also replace a key of the same name). The value should be provided in the request body as a JSON string.
 
 `DELETE /{key}`
 
@@ -46,7 +46,7 @@ Here are some examples of how you can use these requests to interact with the ke
 curl http://127.0.0.1:8080/
 
 # Insert a key-value pair
-curl -X PUT http://127.0.0.1:8080/hello -d '"world"'
+curl -X PUT http://127.0.0.1:8080/hello -d '"world"' -H "Content-Type: application/json"
 
 # Get the value associated with a key
 curl http://127.0.0.1:8080/hello
