@@ -64,3 +64,16 @@ curl -X DELETE http://127.0.0.1:8080/new-post
 # Get a list of all keys in the key-value store
 curl http://127.0.0.1:8080/list/?skip=0&limit=1000
 ```
+
+
+### Testing Results
+
+hard limit of items in memory (for my machine)
+
+`JrhG1ePu|{"key":"value"}` item
+
+count: 1160
+
+Mac os 13.0.1
+16gb RAM
+M1

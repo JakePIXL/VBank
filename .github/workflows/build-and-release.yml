@@ -74,9 +74,9 @@ jobs:
     - name: Setup C Compiler Windows
       if: matrix.os == 'windows-latest'
       run: |
-        if ("${{ matrix.os }}" == "windows-latest" && "${{ matrix.arch }}" == "x64") {
+        if ("${{ matrix.os }}" -eq "windows-latest" && "${{ matrix.arch }}" -eq "x64") {
           choco install visualstudio2019buildtools -y --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
-        } elif ("${{ matrix.os }}" == "windows-latest" && "${{ matrix.arch }}" == "arm64") {
+        } elif ("${{ matrix.os }}" -eq "windows-latest" -and "${{ matrix.arch }}" -eq "arm64") {
           choco install visualstudio2019buildtools -y --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.ARM64"
         }
 
@@ -113,17 +113,21 @@ jobs:
 
 
     - name: Package artifacts
+      if: matrix.os != 'windows-latest'
       run: |
         mkdir -p artifacts
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          cp -f target/release/*.exe artifacts/
-        elif [ "${{ matrix.os }}" = "macOS-latest" ]; then
+        if [ "${{ matrix.os }}" = "macOS-latest" ]; then
           cp -f target/release/*.dmg artifacts/
           cp -f target/release/vbank artifacts/
         elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
           cp -f target/release/*.tar.gz artifacts/
           cp -f target/release/vbank artifacts/
         fi
+
+    - name: Package artifacts Windows
+      if: matrix.os == 'windows-latest'
+      run: |
+        cp -f target/release/*.exe artifacts/
         
     - name: Create Release
       uses: actions/create-release@v1
