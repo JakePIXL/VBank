@@ -25,9 +25,13 @@ This request will return a simple message indicating that the server is running.
 
 This request will return the value associated with the given key in the key-value store. If the key does not exist, it will return a 404 error.
 
+`PUT /`
+
+This request will insert the given value into the key-value store and will generate a new key.
+
 `PUT /{key}`
 
-This request will insert the given key and value into the key-value store (Will also replace a key of the same name). The value should be provided in the request body as a JSON string.
+This request will insert the given key and value into the key-value store.
 
 `DELETE /{key}`
 
@@ -46,14 +50,17 @@ Here are some examples of how you can use these requests to interact with the ke
 curl http://127.0.0.1:8080/
 
 # Insert a key-value pair
-curl -X PUT http://127.0.0.1:8080/hello -d '"world"' -H "Content-Type: application/json"
+curl -X PUT http://127.0.0.1:8080/new-post -d '{"title": "Cool Post", "content": "my cool post"}' -H "Content-Type: application/json"
+
+# Insert a value
+curl -X PUT http://127.0.0.1:8080/ -d '{"title": "Cooler Post", "content": "my cooler post"}' -H "Content-Type: application/json"
 
 # Get the value associated with a key
-curl http://127.0.0.1:8080/hello
+curl http://127.0.0.1:8080/new-post
 
 # Delete a key-value pair
-curl -X DELETE http://127.0.0.1:8080/hello
+curl -X DELETE http://127.0.0.1:8080/new-post
 
 # Get a list of all keys in the key-value store
-curl http://127.0.0.1:8080/list/
+curl http://127.0.0.1:8080/list/?skip=0&limit=1000
 ```
