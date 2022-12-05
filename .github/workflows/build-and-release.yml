@@ -24,15 +24,45 @@ jobs:
         toolchain: stable
 
     - name: Build with Cargo
+      if: matrix.os == 'windows-latest' && matrix.arch == 'x64'
       run: |
-        cargo build --release
+        cargo build --release --target=x86_64-pc-windows-msvc
+
+    - name: Build with Cargo
+      if: matrix.os == 'windows-latest' && matrix.arch == 'arm64'
+      run: |
+        cargo build --release --target=aarch64-pc-windows-msvc
+
+    - name: Build with Cargo
+      if: matrix.os == 'macOS-latest' && matrix.arch == 'x64'
+      run: |
+        cargo build --release --target=x86_64-apple-darwin
+
+    - name: Build with Cargo
+      if: matrix.os == 'macOS-latest' && matrix.arch == 'arm64'
+      run: |
+        cargo build --release --target=aarch64-apple-darwin
+
+    - name: Build with Cargo
+      if: matrix.os == 'ubuntu-latest' && matrix.arch == 'x64'
+      run: |
+        cargo build --release --target=x86_64-unknown-linux-gnu
+
+    - name: Build with Cargo
+      if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
+      run: |
+        cargo build --release --target=aarch64-unknown-linux-gnu
+
 
     - name: Package artifacts
       run: |
         mkdir -p artifacts
-        cp target/release/*.exe artifacts/
-        cp target/release/*.dmg artifacts/
-        cp target/release/*.tar.gz artifacts/
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          cp -f target/release/*.exe artifacts/
+        elif [ "${{ matrix.os }}" = "macOS-latest" ]; then
+          cp -f target/release/*.dmg artifacts/
+        elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+          cp -f target/release/*.tar.gz artifacts/
 
     - name: Create Release
       uses: actions/create-release@v1
