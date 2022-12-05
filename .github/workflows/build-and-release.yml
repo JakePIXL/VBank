@@ -26,31 +26,37 @@ jobs:
     - name: Build with Cargo
       if: matrix.os == 'windows-latest' && matrix.arch == 'x64'
       run: |
+        rustup target add x86_64-pc-windows-msvc
         cargo build --release --target=x86_64-pc-windows-msvc
 
     - name: Build with Cargo
       if: matrix.os == 'windows-latest' && matrix.arch == 'arm64'
       run: |
+        rustup target add aarch64-pc-windows-msvc
         cargo build --release --target=aarch64-pc-windows-msvc
 
     - name: Build with Cargo
       if: matrix.os == 'macOS-latest' && matrix.arch == 'x64'
       run: |
+        rustup target add x86_64-apple-darwin
         cargo build --release --target=x86_64-apple-darwin
 
     - name: Build with Cargo
       if: matrix.os == 'macOS-latest' && matrix.arch == 'arm64'
       run: |
+        rustup target add aarch64-apple-darwin
         cargo build --release --target=aarch64-apple-darwin
 
     - name: Build with Cargo
       if: matrix.os == 'ubuntu-latest' && matrix.arch == 'x64'
       run: |
+        rustup target add x86_64-unknown-linux-gnu
         cargo build --release --target=x86_64-unknown-linux-gnu
 
     - name: Build with Cargo
       if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
       run: |
+        rustup target add aarch64-unknown-linux-gnu
         cargo build --release --target=aarch64-unknown-linux-gnu
 
 
