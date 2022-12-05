@@ -1,0 +1,44 @@
+name: Build and Release
+
+on:
+  push:
+  pull_request:
+    types: [merged]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macOS-latest]
+        arch: [x64, arm64]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+
+    - name: Build with Cargo
+      run: |
+        cargo build --verbose
+
+    - name: Package artifacts
+      run: |
+        mkdir -p artifacts
+        cp -r target/debug/artifacts artifacts/
+
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.THE_HUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+        files: artifacts/*
