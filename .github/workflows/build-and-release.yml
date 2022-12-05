@@ -60,7 +60,7 @@ jobs:
         target: aarch64-unknown-linux-gnu
         
     - name: Setup C Compiler
-      if: matrix.os != "windows-latest"
+      if: matrix.os != 'windows-latest'
       run: |
         if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
           sudo apt-get update
@@ -72,7 +72,7 @@ jobs:
         fi
     
     - name: Setup C Compiler Windows
-      if: matrix.os == "windows-latest"
+      if: matrix.os == 'windows-latest'
       run: |
         if ("${{ matrix.os }}" == "windows-latest" && "${{ matrix.arch }}" == "x64") {
           choco install visualstudio2019buildtools -y --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
