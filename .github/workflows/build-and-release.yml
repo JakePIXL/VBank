@@ -25,17 +25,19 @@ jobs:
 
     - name: Build with Cargo
       run: |
-        cargo build --verbose
+        cargo build --release
 
     - name: Package artifacts
       run: |
         mkdir -p artifacts
-        cp -r target/debug/artifacts artifacts/
+        cp target/release/*.exe artifacts/
+        cp target/release/*.dmg artifacts/
+        cp target/release/*.tar.gz artifacts/
 
     - name: Create Release
       uses: actions/create-release@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.THE_HUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ github.ref }}
         release_name: Release ${{ github.ref }}
