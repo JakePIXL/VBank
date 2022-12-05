@@ -60,12 +60,9 @@ jobs:
         target: aarch64-unknown-linux-gnu
         
     - name: Setup C Compiler
+      if: matrix.os != "windows-latest"
       run: |
-        if [ "${{ matrix.os }}" == "windows-latest" && "${{ matrix.arch }}" == "x64" ]; then
-          choco install visualstudio2019buildtools -y --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
-        elif [ "${{ matrix.os }}" == "windows-latest" && "${{ matrix.arch }}" == "arm64" ]; then
-          choco install visualstudio2019buildtools -y --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.ARM64"
-        elif [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+        if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
           sudo apt-get update
           sudo apt-get install -y build-essential
           sudo apt-get install -y aarch64-linux-gnu-gcc || true
@@ -73,6 +70,15 @@ jobs:
           softwareupdate --list
           softwareupdate --install --all
         fi
+    
+    - name: Setup C Compiler Windows
+      if: matrix.os == "windows-latest"
+      run: |
+        if ("${{ matrix.os }}" == "windows-latest" && "${{ matrix.arch }}" == "x64") {
+          choco install visualstudio2019buildtools -y --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+        } elif ("${{ matrix.os }}" == "windows-latest" && "${{ matrix.arch }}" == "arm64") {
+          choco install visualstudio2019buildtools -y --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.ARM64"
+        }
 
     - name: Build with Cargo
       if: matrix.os == 'windows-latest' && matrix.arch == 'x64'

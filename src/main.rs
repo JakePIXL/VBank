@@ -67,7 +67,7 @@ fn write_kvstore(kvstore: &MutexGuard<HashMap<String, Value>>) -> Result<(), Box
     info!("Writing to data to disk");
 
     // Handle the `Result` returned by `File::open`.
-    let mut file = File::create("./database.vbank")?;
+    let mut file = File::create("database.vbank")?;
     let kvstore_file = kvstore;
     for (key, value) in kvstore_file.iter() {
         // Use the `serde_json` crate to serialize the value to JSON.
