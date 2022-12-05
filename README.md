@@ -1,4 +1,4 @@
-# DistKV - The persistant in-memory key value store
+# VBank - The persistant in-memory key value store
 
 This is a simple key-value store implemented in Rust using the [Actix web framework](https://actix.rs).
 > **Warning**
