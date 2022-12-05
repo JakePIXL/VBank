@@ -35,7 +35,7 @@ struct KVStore {
 }
 
 fn check_file_exists() -> File {
-    let path = "kvstore.txt";
+    let path = "database.vbank";
     let file_exists = fs::metadata(path).is_ok();
     if file_exists {
         return File::open(path).unwrap();
@@ -67,7 +67,7 @@ fn write_kvstore(kvstore: &MutexGuard<HashMap<String, Value>>) -> Result<(), Box
     info!("Writing to data to disk");
 
     // Handle the `Result` returned by `File::open`.
-    let mut file = File::create("./kvstore.txt")?;
+    let mut file = File::create("./database.vbank")?;
     let kvstore_file = kvstore;
     for (key, value) in kvstore_file.iter() {
         // Use the `serde_json` crate to serialize the value to JSON.

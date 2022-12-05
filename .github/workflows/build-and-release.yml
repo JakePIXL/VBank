@@ -68,7 +68,7 @@ jobs:
         elif [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
           sudo apt-get update
           sudo apt-get install -y build-essential
-          sudo apt-get install -y aarch64-linux-gnu-gcc
+          sudo apt-get install -y aarch64-linux-gnu-gcc || true
         elif [ "${{ matrix.os }}" == "macOS-latest" ]; then
           softwareupdate --list
           softwareupdate --install --all
@@ -102,6 +102,7 @@ jobs:
     - name: Build with Cargo
       if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
       run: |
+        rustup component add rust-src
         cargo build --release --target=aarch64-unknown-linux-gnu
 
 
@@ -112,8 +113,10 @@ jobs:
           cp -f target/release/*.exe artifacts/
         elif [ "${{ matrix.os }}" = "macOS-latest" ]; then
           cp -f target/release/*.dmg artifacts/
+          cp -f target/release/vbank artifacts/
         elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
           cp -f target/release/*.tar.gz artifacts/
+          cp -f target/release/vbank artifacts/
         fi
         
     - name: Create Release
