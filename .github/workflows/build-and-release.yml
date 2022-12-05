@@ -58,6 +58,17 @@ jobs:
         profile: minimal
         toolchain: stable
         target: aarch64-unknown-linux-gnu
+        
+    - name: Setup C Compiler
+      run: |
+        if [ "${{ matrix.os }}" == "windows-latest" ]; then
+          choco install visualstudio2019buildtools -y --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+        elif [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+        elif [ "${{ matrix.os }}" == "macOS-latest" ]; then
+          xcode-select --install
+        fi
 
     - name: Build with Cargo
       if: matrix.os == 'windows-latest' && matrix.arch == 'x64'
@@ -99,7 +110,8 @@ jobs:
           cp -f target/release/*.dmg artifacts/
         elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
           cp -f target/release/*.tar.gz artifacts/
-
+        fi
+        
     - name: Create Release
       uses: actions/create-release@v1
       env:
