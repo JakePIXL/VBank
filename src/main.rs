@@ -46,10 +46,17 @@ fn check_file_exists() -> File {
     let path = "database.vbank";
     let file_exists = fs::metadata(path).is_ok();
     if file_exists {
-        return File::open(path).unwrap();
+        match File::open(path) {
+            Ok(file) => return file,
+            Err(error) => panic!("Problem opening the file: {:?}", error),
+        };
     } else {
-        let file = File::create(path).unwrap();
-        return file;
+        File::create(path).unwrap();
+
+        match File::open(path) {
+            Ok(file) => return file,
+            Err(error) => panic!("Problem opening the file: {:?}", error),
+        }
     }
 }
 
@@ -77,7 +84,7 @@ fn write_kvstore(kvstore: &RwLock<HashMap<String, Value>>) -> Result<(), Box<dyn
     info!("Writing to data to disk");
 
     // Handle the `Result` returned by `File::open`.
-    let mut file = File::create("database.vbank")?;
+    let mut file = File::create("./database.vbank")?;
     let kvstore_file = kvstore.read();
     for (key, value) in kvstore_file.iter() {
         // Use the `serde_json` crate to serialize the value to JSON.
@@ -100,7 +107,7 @@ fn print_ascii_art() {
     ███    ███  ▄███▄▄▄██▀    ███    ███ ███   ███  ▄█████▀    
     ███    ███ ▀▀███▀▀▀██▄  ▀███████████ ███   ███ ▀▀█████▄    
     ███    ███   ███    ██▄   ███    ███ ███   ███   ███▐██▄   
-    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.1.0
+    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.1.1
      ▀██████▀  ▄█████████▀    ███    █▀   ▀█   █▀    ███   ▀█▀  by @JakePIXL
                                                      ▀                 
 "#

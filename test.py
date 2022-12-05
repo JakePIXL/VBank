@@ -6,7 +6,7 @@ from threading import Thread
 base_url = "http://localhost:8080"
 
 # the number of requests to make
-num_requests = 10000
+num_requests = 1000
 
 # the number of parallel threads to use
 num_threads = 100
