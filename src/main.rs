@@ -5,12 +5,13 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::{fs};
 use std::fs::File;
-use std::sync::{Arc, Mutex, MutexGuard};
+// use std::sync::{Arc, Mutex};
 use tracing::info;
 use tracing_subscriber;
 use std::io::{Read, Write};
 use rand::{thread_rng, Rng};
 use rand_distr::Alphanumeric;
+use parking_lot::RwLock;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct KV {
@@ -29,9 +30,16 @@ struct KVList {
     kvs: Vec<KV>,
 }
 
-#[derive(Clone)]
 struct KVStore {
-    store: Arc<Mutex<HashMap<String, Value>>>,
+    store: RwLock<HashMap<String, Value>>,
+}
+
+impl Clone for KVStore {
+    fn clone(&self) -> Self {
+        KVStore {
+            store: RwLock::new(self.store.read().clone()),
+        }
+    }
 }
 
 fn check_file_exists() -> File {
@@ -45,11 +53,11 @@ fn check_file_exists() -> File {
     }
 }
 
-fn read_kvstore(kvstore: Arc<Mutex<HashMap<String, Value>>>) -> Result<(), Box<dyn Error>> {
+fn read_kvstore(kvstore: &RwLock<HashMap<String, Value>>) -> Result<(), Box<dyn Error>> {
     let mut file = check_file_exists();
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let mut kvstore_file = kvstore.lock().unwrap();
+    let mut kvstore_file = kvstore.write();
     for line in contents.lines() {
         let mut kv = line.split("|");
         let key = kv.next().unwrap();
@@ -60,15 +68,17 @@ fn read_kvstore(kvstore: Arc<Mutex<HashMap<String, Value>>>) -> Result<(), Box<d
 
         kvstore_file.insert(key.to_string(), json_value);
     }
+    let count = kvstore_file.capacity();
+    info!("Loaded {} keys from disk", count);
     Ok(())
 }
 
-fn write_kvstore(kvstore: &MutexGuard<HashMap<String, Value>>) -> Result<(), Box<dyn Error>> {
+fn write_kvstore(kvstore: &RwLock<HashMap<String, Value>>) -> Result<(), Box<dyn Error>> {
     info!("Writing to data to disk");
 
     // Handle the `Result` returned by `File::open`.
     let mut file = File::create("database.vbank")?;
-    let kvstore_file = kvstore;
+    let kvstore_file = kvstore.read();
     for (key, value) in kvstore_file.iter() {
         // Use the `serde_json` crate to serialize the value to JSON.
         let json_value = serde_json::to_string(value)?;
@@ -106,16 +116,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     info!("Starting in-memory key-value store");
     
     let kvs: KVStore = KVStore {
-        store: Arc::new(Mutex::new(HashMap::new())),
+        store: RwLock::new(HashMap::new()),
     };
     
-    read_kvstore(kvs.store.clone()).unwrap();
+    read_kvstore(&kvs.store).unwrap();
 
     info!("Starting server");
 
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(kvs.store.clone()))
+            .app_data(web::Data::new(kvs.clone().store))
             .route("/", web::get().to(index))
             .route("/", web::put().to(create_key))
             .route("/{key}", web::get().to(get_key))
@@ -128,6 +138,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .run()
     .await?;
 
+    // write_kvstore(&kvs.store).unwrap();
+
     Ok(())
 }
 
@@ -136,10 +148,10 @@ async fn index() -> impl Responder {
 }
 
 async fn get_key(
-    kvs: web::Data<Arc<Mutex<HashMap<String, Value>>>>,
+    kvs: web::Data<RwLock<HashMap<String, Value>>>,
     key: web::Path<String>,
 ) -> impl Responder {
-    let kvs = kvs.lock().unwrap();
+    let kvs = kvs.read();
     match kvs.get(&key.clone()) {
         Some(value) => {
             let data: Value = value.clone();
@@ -169,19 +181,20 @@ async fn get_key(
 //     format!("Key inserted")
 // }
 
-async fn create_key(kvs: web::Data<Arc<Mutex<HashMap<String, Value>>>>, value: web::Json<Value>) -> impl Responder {
+async fn create_key(kvs: web::Data<RwLock<HashMap<String, Value>>>, value: web::Json<Value>) -> impl Responder {
     // Generate a 8 character string for the key
     let mut key = generate_random_string(8);
-
-    // Check if the key already exists in the database
-    let mut kvs = kvs.lock().unwrap();
-    while kvs.contains_key(&key) {
-        // Generate a new key if the key already exists
-        key = generate_random_string(8);
+    {
+        // Check if the key already exists in the database
+        let mut kvs = kvs.write();
+        while kvs.contains_key(&key) {
+            // Generate a new key if the key already exists
+            key = generate_random_string(8);
+        }
+        
+        // Insert the key-value pair into the database
+        kvs.insert(key.to_string(), value.clone());
     }
-    
-    // Insert the key-value pair into the database
-    kvs.insert(key.to_string(), value.clone());
     
     // Save the data to disk by calling the `write_kvstore` function.
     write_kvstore(&kvs).expect("Error writing to disk");
@@ -191,21 +204,24 @@ async fn create_key(kvs: web::Data<Arc<Mutex<HashMap<String, Value>>>>, value: w
     format!("Key created: {}", key)
 }
 
-async fn create_key_with_key(kvs: web::Data<Arc<Mutex<HashMap<String, Value>>>>, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
+async fn create_key_with_key(kvs: web::Data<RwLock<HashMap<String, Value>>>, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
 
     // Check if the key already exists in the database
-    let mut kvs = kvs.lock().unwrap();
 
-    let mut key = key.to_string();
 
-    while kvs.contains_key(&key.clone()) {
-        // Generate a new key if the key already exists
-        key = generate_random_string(8);
+    {
+        let mut kvs = kvs.write();
+        let mut key = key.to_string();
+
+        while kvs.contains_key(&key.clone()) {
+            // Generate a new key if the key already exists
+            key = generate_random_string(8);
+        }
+        
+        // Insert the key-value pair into the database
+        kvs.insert(key.to_string(), value.clone());
     }
-    
-    // Insert the key-value pair into the database
-    kvs.insert(key.to_string(), value.clone());
-    
+
     // Save the data to disk by calling the `write_kvstore` function.
     write_kvstore(&kvs).expect("Error writing to disk");
     
@@ -214,17 +230,18 @@ async fn create_key_with_key(kvs: web::Data<Arc<Mutex<HashMap<String, Value>>>>,
     format!("Key created: {}", key)
 }
     
-async fn update_key(kvs: web::Data<Arc<Mutex<HashMap<String, Value>>>>, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
-    let mut kvs = kvs.lock().unwrap();
+async fn update_key(kvs: web::Data<RwLock<HashMap<String, Value>>>, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
+    {
+        let mut kvs = kvs.write();
 
-    // Check if the key exists in the database
-    if !kvs.contains_key(&key.clone()) {
-        return format!("Key does not exist: {}", key);
+        // Check if the key exists in the database
+        if !kvs.contains_key(&key.clone()) {
+            return format!("Key does not exist: {}", key);
+        }
+        
+        // Update the key-value pair in the database
+        kvs.insert(key.to_string(), value.clone());
     }
-    
-    // Update the key-value pair in the database
-    kvs.insert(key.to_string(), value.clone());
-    
     // Save the data to disk by calling the `write_kvstore` function.
     write_kvstore(&kvs).expect("Error writing to disk");
     
@@ -245,19 +262,21 @@ fn generate_random_string(length: usize) -> String {
     chars.into_iter().collect()
 }
 
-async fn delete_key(kvs: web::Data<Arc<Mutex<HashMap<String, Value>>>>, key: web::Path<String>) -> impl Responder {
-    let mut kvs = kvs.lock().unwrap();
-    let response = match kvs.remove(&key.clone()) {
-        Some(_) => {
-            info!("deleted key: {}", key);
-            format!("Key deleted")
-        },
-        None => {
-            info!("key not found: {}", key);
-            format!("Key not found")
-        },
+async fn delete_key(kvs: web::Data<RwLock<HashMap<String, Value>>>, key: web::Path<String>) -> impl Responder {
+    let response = {
+        let mut kvs = kvs.write();
+        let response = match kvs.remove(&key.clone()) {
+            Some(_) => {
+                info!("deleted key: {}", key);
+                format!("Key deleted")
+            },
+            None => {
+                info!("key not found: {}", key);
+                format!("Key not found")
+            },
+        };
+        response
     };
-
 
     write_kvstore(&kvs).expect("Error writing to disk");
 
@@ -265,11 +284,11 @@ async fn delete_key(kvs: web::Data<Arc<Mutex<HashMap<String, Value>>>>, key: web
 }
 
 async fn list_keys(
-    kvs: web::Data<Arc<Mutex<HashMap<String, Value>>>>,
+    kvs: web::Data<RwLock<HashMap<String, Value>>>,
     query: web::Query<ListQuery>
 ) -> impl Responder {
     info!("listing keys");
-    let kvs = kvs.lock().unwrap();
+    let kvs = kvs.read();
     let mut kv_list = Vec::new();
 
     // Determine the skip and limit values. If they are not specified in the
