@@ -72,8 +72,13 @@ hard limit of items in memory (for my machine)
 
 `JrhG1ePu|{"key":"value"}` item
 
-count: 1160
+count: 1160 (using HashMap)
+count: 1730 (using BTreeMap)
 
-Mac os 13.0.1
-16gb RAM
-M1
+```
+System: Mac os 13.0.1
+
+Ram: 16gb
+
+Platform: M1
+```

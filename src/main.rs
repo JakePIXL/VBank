@@ -1,7 +1,7 @@
 use actix_web::{web, App, HttpServer, Responder};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::{fs};
 use std::fs::File;
@@ -31,7 +31,7 @@ struct KVList {
 }
 
 struct KVStore {
-    store: RwLock<HashMap<String, Value>>,
+    store: RwLock<BTreeMap<String, Value>>,
 }
 
 impl Clone for KVStore {
@@ -60,7 +60,7 @@ fn check_file_exists() -> File {
     }
 }
 
-fn read_kvstore(kvstore: &RwLock<HashMap<String, Value>>) -> Result<(), Box<dyn Error>> {
+fn read_kvstore(kvstore: &RwLock<BTreeMap<String, Value>>) -> Result<(), Box<dyn Error>> {
     let mut file = check_file_exists();
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
@@ -68,19 +68,29 @@ fn read_kvstore(kvstore: &RwLock<HashMap<String, Value>>) -> Result<(), Box<dyn 
     for line in contents.lines() {
         let mut kv = line.split("|");
         let key = kv.next().unwrap();
-        let value = kv.next().unwrap();
+        let value = kv.next().unwrap_or("");
+
+        if key.is_empty() || value.is_empty() {
+            continue;
+        }
 
         // Use the `serde_json` crate to deserialize the value from JSON.
+        // Check if the value string starts and ends with double quotes, and remove them if it does.
+        let value = if value.starts_with('"') && value.ends_with('"') {
+            &value[1..value.len() - 1]
+        } else {
+            value
+        };
         let json_value = serde_json::from_str(value)?;
 
         kvstore_file.insert(key.to_string(), json_value);
     }
-    let count = kvstore_file.capacity();
+    let count = kvstore_file.len();
     info!("Loaded {} keys from disk", count);
     Ok(())
 }
 
-fn write_kvstore(kvstore: &RwLock<HashMap<String, Value>>) -> Result<(), Box<dyn Error>> {
+fn write_kvstore(kvstore: &RwLock<BTreeMap<String, Value>>) -> Result<(), Box<dyn Error>> {
     info!("Writing to data to disk");
 
     // Handle the `Result` returned by `File::open`.
@@ -90,11 +100,15 @@ fn write_kvstore(kvstore: &RwLock<HashMap<String, Value>>) -> Result<(), Box<dyn
         // Use the `serde_json` crate to serialize the value to JSON.
         let json_value = serde_json::to_string(value)?;
 
+        // Check if the JSON string contains a pipe character, and escape it if it does.
+        let json_value = json_value.replace("|", "\\|");
+
         // Use a delimiter that cannot appear in the JSON string.
         file.write_all(format!("{}|{}\n", key, json_value).as_bytes())?;
     }
     Ok(())
 }
+
 
 fn print_ascii_art() {
     info!(
@@ -107,7 +121,7 @@ fn print_ascii_art() {
     ███    ███  ▄███▄▄▄██▀    ███    ███ ███   ███  ▄█████▀    
     ███    ███ ▀▀███▀▀▀██▄  ▀███████████ ███   ███ ▀▀█████▄    
     ███    ███   ███    ██▄   ███    ███ ███   ███   ███▐██▄   
-    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.1.1
+    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.1.2
      ▀██████▀  ▄█████████▀    ███    █▀   ▀█   █▀    ███   ▀█▀  by @JakePIXL
                                                      ▀                 
 "#
@@ -123,7 +137,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     info!("Starting in-memory key-value store");
     
     let kvs: KVStore = KVStore {
-        store: RwLock::new(HashMap::new()),
+        store: RwLock::new(BTreeMap::new()),
     };
     
     read_kvstore(&kvs.store).unwrap();
@@ -155,7 +169,7 @@ async fn index() -> impl Responder {
 }
 
 async fn get_key(
-    kvs: web::Data<RwLock<HashMap<String, Value>>>,
+    kvs: web::Data<RwLock<BTreeMap<String, Value>>>,
     key: web::Path<String>,
 ) -> impl Responder {
     let kvs = kvs.read();
@@ -188,7 +202,7 @@ async fn get_key(
 //     format!("Key inserted")
 // }
 
-async fn create_key(kvs: web::Data<RwLock<HashMap<String, Value>>>, value: web::Json<Value>) -> impl Responder {
+async fn create_key(kvs: web::Data<RwLock<BTreeMap<String, Value>>>, value: web::Json<Value>) -> impl Responder {
     // Generate a 8 character string for the key
     let mut key = generate_random_string(8);
     {
@@ -211,7 +225,7 @@ async fn create_key(kvs: web::Data<RwLock<HashMap<String, Value>>>, value: web::
     format!("Key created: {}", key)
 }
 
-async fn create_key_with_key(kvs: web::Data<RwLock<HashMap<String, Value>>>, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
+async fn create_key_with_key(kvs: web::Data<RwLock<BTreeMap<String, Value>>>, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
 
     // Check if the key already exists in the database
 
@@ -237,7 +251,7 @@ async fn create_key_with_key(kvs: web::Data<RwLock<HashMap<String, Value>>>, key
     format!("Key created: {}", key)
 }
     
-async fn update_key(kvs: web::Data<RwLock<HashMap<String, Value>>>, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
+async fn update_key(kvs: web::Data<RwLock<BTreeMap<String, Value>>>, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
     {
         let mut kvs = kvs.write();
 
@@ -269,7 +283,7 @@ fn generate_random_string(length: usize) -> String {
     chars.into_iter().collect()
 }
 
-async fn delete_key(kvs: web::Data<RwLock<HashMap<String, Value>>>, key: web::Path<String>) -> impl Responder {
+async fn delete_key(kvs: web::Data<RwLock<BTreeMap<String, Value>>>, key: web::Path<String>) -> impl Responder {
     let response = {
         let mut kvs = kvs.write();
         let response = match kvs.remove(&key.clone()) {
@@ -291,7 +305,7 @@ async fn delete_key(kvs: web::Data<RwLock<HashMap<String, Value>>>, key: web::Pa
 }
 
 async fn list_keys(
-    kvs: web::Data<RwLock<HashMap<String, Value>>>,
+    kvs: web::Data<RwLock<BTreeMap<String, Value>>>,
     query: web::Query<ListQuery>
 ) -> impl Responder {
     info!("listing keys");

@@ -16,35 +16,35 @@ def put_request():
     url = base_url + "/"
     data = {"test_key": "test_value"}
     headers = {"Content-Type": "application/json"}
-    response = requests.put(url, json=data, headers=headers)
+    _ = requests.put(url, json=data, headers=headers)
     
 def make_test_key():
     url = base_url + "/" + "test_key"
     data = {"test_key": "test_value"}
     headers = {"Content-Type": "application/json"}
-    response = requests.put(url, json=data, headers=headers)
+    _ = requests.put(url, json=data, headers=headers)
 
 # a function to make a GET request
 def get_request():
     url = base_url + "/" + "test_key"
-    response = requests.get(url)
+    _ = requests.get(url)
 
 # a function to make a PATCH request
 def patch_request():
     url = base_url + "/test_key"
     data = {"new_test_key": "new_test_value"}
     headers = {"Content-Type": "application/json"}
-    response = requests.patch(url, json=data, headers=headers)
+    _ = requests.patch(url, json=data, headers=headers)
 
 # a function to make a DELETE request
 def delete_request():
     url = base_url + "/test_key"
-    response = requests.delete(url)
+    _ = requests.delete(url)
 
 # a function to make a GET /list request
 def list_request():
     url = base_url + "/list/?skip=5&limit=100"
-    response = requests.get(url)
+    _ = requests.get(url)
 
 if __name__ == "__main__":
     
