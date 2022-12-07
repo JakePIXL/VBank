@@ -5,9 +5,6 @@ from threading import Thread
 # the base URL of the database
 base_url = "http://localhost:8080"
 
-# the number of requests to make
-num_requests = 1000
-
 # the number of parallel threads to use
 num_threads = 100
 
@@ -48,26 +45,30 @@ def list_request():
 
 if __name__ == "__main__":
     
+    make_test_key()
+    
     # create a list of functions to call
-    request_functions = [make_test_key, put_request, get_request, patch_request, delete_request, list_request]
-
-    # start the timer
-    start_time = time.time()
+    request_functions = [put_request, get_request, patch_request, delete_request, list_request]
 
     # make the requests in parallel
-    for i in range(num_requests):
-        # choose a random request function
-        func = request_functions[i % len(request_functions)]
+    for num_requests in range(1, 1000, 100):
+        # reset the timer
+        start_time = time.time()
+        
+        # make the requests
+        for i in range(num_requests):
+            # choose a random request function
+            func = request_functions[i % len(request_functions)]
 
-        # start a new thread to make the request
-        thread = Thread(target=func)
-        thread.start()
+            # start a new thread to make the request
+            thread = Thread(target=func)
+            thread.start()
 
-    # stop the timer
-    end_time = time.time()
+        # stop the timer
+        end_time = time.time()
 
-    # calculate the total time taken
-    total_time = end_time - start_time
+        # calculate the total time taken
+        total_time = end_time - start_time
 
-    # print the results
-    print(f"Made {num_requests} requests in {total_time} seconds using {num_threads} threads.")
+        # print the results
+        print(f"Made {num_requests} requests in {total_time} seconds using {num_threads} threads.")
