@@ -3,6 +3,7 @@
 This is a simple key-value store implemented in Rust using the [Actix web framework](https://actix.rs).
 > **Warning**
 > Do NOT use this in production and do NOT ask for support as this was a proof of concept.
+> Error when using, sometime only one thread gets an item.
 
 ## Running the Project
 To run the project, you will need to have the [Rust programming language](https://www.rust-lang.org/) and the [Cargo package manager](https://doc.rust-lang.org/cargo/) installed on your system.
