@@ -6,7 +6,7 @@ use std::error::Error;
 use std::fs;
 use std::io::{Read, Write};
 use std::{collections::BTreeMap, fs::File};
-use std::sync::RwLock;
+use std::sync::{Arc, Mutex};
 use rand::{thread_rng, Rng};
 use rand_distr::Alphanumeric;
 
@@ -17,14 +17,14 @@ struct KV {
 }
 
 pub struct KVStore {
-    pub store: RwLock<BTreeMap<String, Value>>,
+    pub store: Arc<Mutex<BTreeMap<String, Value>>>,
 }
 
 impl KVStore {
 
     pub fn new() -> Self {
         let kvs = KVStore {
-            store: RwLock::new(BTreeMap::new()),
+            store: Arc::new(Mutex::new(BTreeMap::new())),
         };
         {
             read_kvstore(&kvs.store).unwrap();
@@ -48,7 +48,7 @@ impl KVStore {
         let mut key = Self::generate_random_string(8);
         {
             // Check if the key already exists in the database
-            let mut kvs = self.store.write().unwrap();
+            let mut kvs = self.store.lock().unwrap();
 
             while kvs.contains_key(&key) {
                 // Generate a new key if the key already exists
@@ -62,7 +62,7 @@ impl KVStore {
         // Save the data to disk by calling the `write_kvstore` function.
         write_kvstore(&self.store).expect("Error writing to disk");
         
-        info!("created key: {}", key);
+        info!("Created key: {}", key);
         
         format!("Key created: {}", key)
     }
@@ -70,7 +70,7 @@ impl KVStore {
     pub async fn create_key_with_key(&self, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
         {
             // Check if the key already exists in the database
-            let mut kvs = self.store.write().unwrap();
+            let mut kvs = self.store.lock().unwrap();
             if kvs.contains_key(&key.to_string()) {
                 return actix_web::HttpResponse::Conflict().body("Key already exists");
             }
@@ -82,15 +82,15 @@ impl KVStore {
         // Save the data to disk by calling the `write_kvstore` function.
         write_kvstore(&self.store).expect("Error writing to disk");
         
-        info!("created key: {}", key);
+        info!("Created key: {}", key);
         
         actix_web::HttpResponse::Ok().body(format!("Key created: {}", key))
     }
 
     pub async fn insert(&self, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
-        let mut store = self.store.write().unwrap();
+        let mut store = self.store.lock().unwrap();
 
-        info!("inserting key: {}", key);
+        info!("Patched key: {}", key);
 
         store.insert(key.clone(), value.to_owned());
         
@@ -99,29 +99,36 @@ impl KVStore {
 
     pub async fn get(&self, key: web::Path<String>) -> impl Responder {
 
-        let store = self.store.read().unwrap();
+        let store = self.store.lock().unwrap();
 
         if !store.contains_key(&key.to_string()) {
             warn!("Key not found: {}", key);
             return actix_web::HttpResponse::NotFound().body("Key not found");
         }
 
+        info!("Grabbing key: {}", key);
+
         actix_web::HttpResponse::Ok().body(store.get(&key.to_string()).unwrap().to_string())
     }
 
     pub async fn delete(&self, key: web::Path<String>) -> impl Responder {
-        let mut store = self.store.write().unwrap();
+        let mut store = self.store.lock().unwrap();
         
         if store.contains_key(&key.to_string()) {
             store.remove(&key.to_string());
+
+            info!("Deleted key: {}", key);
+
             actix_web::HttpResponse::Ok().body(format!("Key deleted: {}", key))
         } else {
+
+            warn!("Key not found: {}", key);
             actix_web::HttpResponse::NotFound().body("Key not found")
         }
     }
 
     pub async fn list_keys(&self, skip: Option<u64>, limit: Option<u64>) -> impl Responder {
-        let kvs = &self.store.read().unwrap();
+        let kvs = &self.store.lock().unwrap();
         let mut kv_list = Vec::new();
 
         // Determine the skip and limit values. If they are not specified in the
@@ -144,9 +151,11 @@ impl KVStore {
         }
 
         if count == 0 {
+            info!("No documents found");
             return actix_web::HttpResponse::NotFound().body("No keys found");
         }
 
+        info!("Returning {} keys after skipping {}", count, skip);
         actix_web::HttpResponse::NotFound().json(kv_list)
         // web::Json(kv_list)
     }
@@ -155,7 +164,7 @@ impl KVStore {
 impl Clone for KVStore {
     fn clone(&self) -> Self {
         KVStore {
-            store: RwLock::new(self.store.read().unwrap().clone()),
+            store: Arc::new(Mutex::new(self.store.lock().unwrap().clone())),
         }
     }
 }
@@ -178,11 +187,11 @@ fn check_file_exists() -> File {
     }
 }
 
-fn read_kvstore(kvstore: &RwLock<BTreeMap<String, Value>>) -> Result<(), Box<dyn Error>> {
+fn read_kvstore(kvstore: &Arc<Mutex<BTreeMap<String, Value>>>) -> Result<(), Box<dyn Error>> {
     let mut file = check_file_exists();
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let mut kvstore_file = kvstore.write().unwrap();
+    let mut kvstore_file = kvstore.lock().unwrap();
     for line in contents.lines() {
         let mut kv = line.split("|");
         let key = kv.next().unwrap();
@@ -209,12 +218,12 @@ fn read_kvstore(kvstore: &RwLock<BTreeMap<String, Value>>) -> Result<(), Box<dyn
     Ok(())
 }
 
-pub fn write_kvstore(kvstore: &RwLock<BTreeMap<String, Value>>) -> Result<(), Box<dyn Error>> {
+pub fn write_kvstore(kvstore: &Arc<Mutex<BTreeMap<String, Value>>>) -> Result<(), Box<dyn Error>> {
     info!("Writing to data to disk");
 
     // Handle the `Result` returned by `File::open`.
     let mut file = File::create("./database.vbank")?;
-    let kvstore_file = kvstore.read().unwrap();
+    let kvstore_file = kvstore.lock().unwrap();
     for (key, value) in kvstore_file.iter() {
         // Use the `serde_json` crate to serialize the value to JSON.
         let json_value = serde_json::to_string(value)?;
