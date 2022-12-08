@@ -23,9 +23,13 @@ pub struct KVStore {
 impl KVStore {
 
     pub fn new() -> Self {
-        KVStore {
+        let kvs = KVStore {
             store: RwLock::new(BTreeMap::new()),
+        };
+        {
+            read_kvstore(&kvs.store).unwrap();
         }
+        kvs
     }
 
     // Generate a 8 character string for the key
@@ -86,6 +90,8 @@ impl KVStore {
     pub async fn insert(&self, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
         let mut store = self.store.write().unwrap();
 
+        info!("inserting key: {}", key);
+
         store.insert(key.clone(), value.to_owned());
         
         actix_web::HttpResponse::Ok().body(format!("Key created: {}", key))
@@ -137,7 +143,12 @@ impl KVStore {
             count += 1;
         }
 
-        web::Json(kv_list)
+        if count == 0 {
+            return actix_web::HttpResponse::NotFound().body("No keys found");
+        }
+
+        actix_web::HttpResponse::NotFound().json(kv_list)
+        // web::Json(kv_list)
     }
 }
 
@@ -167,7 +178,7 @@ fn check_file_exists() -> File {
     }
 }
 
-pub fn read_kvstore(kvstore: &RwLock<BTreeMap<String, Value>>) -> Result<(), Box<dyn Error>> {
+fn read_kvstore(kvstore: &RwLock<BTreeMap<String, Value>>) -> Result<(), Box<dyn Error>> {
     let mut file = check_file_exists();
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
@@ -188,7 +199,8 @@ pub fn read_kvstore(kvstore: &RwLock<BTreeMap<String, Value>>) -> Result<(), Box
         } else {
             value
         };
-        let json_value = serde_json::from_str(value)?;
+        let decoded_value = base64::decode(value)?;
+        let json_value = serde_json::from_slice(&decoded_value)?;
 
         kvstore_file.insert(key.to_string(), json_value);
     }
@@ -197,7 +209,7 @@ pub fn read_kvstore(kvstore: &RwLock<BTreeMap<String, Value>>) -> Result<(), Box
     Ok(())
 }
 
-fn write_kvstore(kvstore: &RwLock<BTreeMap<String, Value>>) -> Result<(), Box<dyn Error>> {
+pub fn write_kvstore(kvstore: &RwLock<BTreeMap<String, Value>>) -> Result<(), Box<dyn Error>> {
     info!("Writing to data to disk");
 
     // Handle the `Result` returned by `File::open`.
@@ -206,9 +218,10 @@ fn write_kvstore(kvstore: &RwLock<BTreeMap<String, Value>>) -> Result<(), Box<dy
     for (key, value) in kvstore_file.iter() {
         // Use the `serde_json` crate to serialize the value to JSON.
         let json_value = serde_json::to_string(value)?;
+        let encoded_value = base64::encode(&json_value);
 
         // Check if the JSON string contains a pipe character, and escape it if it does.
-        let json_value = json_value.replace("|", "\\|");
+        let json_value = encoded_value.replace("|", "\\|");
 
         // Use a delimiter that cannot appear in the JSON string.
         file.write_all(format!("{}|{}\n", key, json_value).as_bytes())?;

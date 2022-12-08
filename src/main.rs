@@ -9,7 +9,7 @@ use tracing_subscriber;
 mod kvstore;
 use kvstore::KVStore;
 
-use crate::kvstore::read_kvstore;
+// use crate::kvstore::read_kvstore;
 
 #[derive(Debug, Deserialize)]
 pub struct ListQuery {
@@ -28,7 +28,7 @@ fn print_ascii_art() {
     ███    ███  ▄███▄▄▄██▀    ███    ███ ███   ███  ▄█████▀    
     ███    ███ ▀▀███▀▀▀██▄  ▀███████████ ███   ███ ▀▀█████▄    
     ███    ███   ███    ██▄   ███    ███ ███   ███   ███▐██▄   
-    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.2.0
+    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.2.1
      ▀██████▀  ▄█████████▀    ███    █▀   ▀█   █▀    ███   ▀█▀  by @JakePIXL
                                                      ▀                 
 "#
@@ -44,8 +44,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     info!("Starting in-memory key-value store");
     
     let kvs: KVStore = KVStore::new();
-    
-    read_kvstore(&kvs.store).unwrap();
 
     info!("Starting server");
 

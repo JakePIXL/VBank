@@ -8,47 +8,64 @@ base_url = "http://localhost:8080"
 # the number of parallel threads to use
 num_threads = 100
 
+test_data = {
+    "title": "Title",
+    "description": "Test Description",
+    "price": 100.00,
+    "quantity": 100,
+    "category": "test_category",
+    "image": "test_image",
+    "rating": 5.0,
+}
+
+updated_test_data = {
+    "title": "New Title",
+    "description": "New Test Description",
+    "price": 95.99,
+    "quantity": 25,
+    "category": "test_category",
+    "image": "new_test_image",
+    "rating": 5.5,
+}
+headers = {"Content-Type": "application/json"}
+
 # a function to make a PUT request
 def put_request():
-    url = base_url + "/"
-    data = {"test_key": "test_value"}
-    headers = {"Content-Type": "application/json"}
-    _ = requests.put(url, json=data, headers=headers)
+    url = f"{base_url}/"
+    _ = requests.put(url, json=test_data, headers=headers)
     
 def make_test_key():
-    url = base_url + "/" + "test_key"
-    data = {"test_key": "test_value"}
-    headers = {"Content-Type": "application/json"}
-    _ = requests.put(url, json=data, headers=headers)
+    url = f"{base_url}/test_key"
+    _ = requests.put(url, json=test_data, headers=headers)
+    
+def make_second_test_key():
+    url = f"{base_url}/test_key_two"
+    _ = requests.put(url, json=updated_test_data, headers=headers)
 
 # a function to make a GET request
 def get_request():
-    url = base_url + "/" + "test_key"
+    url = f"{base_url}/test_key"
     _ = requests.get(url)
 
 # a function to make a PATCH request
 def patch_request():
-    url = base_url + "/test_key"
-    data = {"new_test_key": "new_test_value"}
-    headers = {"Content-Type": "application/json"}
-    _ = requests.patch(url, json=data, headers=headers)
+    url = f"{base_url}/test_key"
+    _ = requests.patch(url, json=updated_test_data, headers=headers)
 
 # a function to make a DELETE request
 def delete_request():
-    url = base_url + "/test_key"
+    url = f"{base_url}/test_key"
     _ = requests.delete(url)
 
 # a function to make a GET /list request
 def list_request():
-    url = base_url + "/list/?skip=5&limit=100"
+    url = f"{base_url}/list/?skip=5&limit=100"
     _ = requests.get(url)
 
-if __name__ == "__main__":
-    
-    make_test_key()
+def run_threaded_requests():
     
     # create a list of functions to call
-    request_functions = [put_request, get_request, patch_request, delete_request, list_request]
+    request_functions = [make_test_key, make_second_test_key, put_request, get_request, patch_request, delete_request, list_request]
 
     # make the requests in parallel
     for num_requests in range(1, 1000, 100):
@@ -72,3 +89,7 @@ if __name__ == "__main__":
 
         # print the results
         print(f"Made {num_requests} requests in {total_time} seconds using {num_threads} threads.")
+
+
+if __name__ == "__main__":
+    run_threaded_requests()
