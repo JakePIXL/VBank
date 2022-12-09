@@ -122,7 +122,7 @@ impl KVStore {
             actix_web::HttpResponse::Ok().body(format!("Key deleted: {}", key))
         } else {
 
-            warn!("Key not found: {}", key);
+            warn!("Delete error - Key not found: {}", key);
             actix_web::HttpResponse::NotFound().body("Key not found")
         }
     }
@@ -156,8 +156,8 @@ impl KVStore {
         }
 
         info!("Returning {} keys after skipping {}", count, skip);
-        actix_web::HttpResponse::NotFound().json(kv_list)
-        // web::Json(kv_list)
+
+        actix_web::HttpResponse::Ok().json(kv_list)
     }
 }
 

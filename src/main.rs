@@ -1,13 +1,12 @@
 use std::error::Error;
 
 use actix_web::{web, App, HttpServer, Responder};
-use serde::{Deserialize};
+use serde::Deserialize;
 use serde_json::Value;
-use tracing::info;
-use tracing_subscriber;
 
 mod kvstore;
 use kvstore::KVStore;
+use tracing::log::info;
 
 // use crate::kvstore::read_kvstore;
 
@@ -28,7 +27,7 @@ fn print_ascii_art() {
     ███    ███  ▄███▄▄▄██▀    ███    ███ ███   ███  ▄█████▀    
     ███    ███ ▀▀███▀▀▀██▄  ▀███████████ ███   ███ ▀▀█████▄    
     ███    ███   ███    ██▄   ███    ███ ███   ███   ███▐██▄   
-    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.3.0
+    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.3.1
      ▀██████▀  ▄█████████▀    ███    █▀   ▀█   █▀    ███   ▀█▀  by @JakePIXL
                                                      ▀                 
 "#
@@ -58,6 +57,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .route("/{key}", web::delete().to(delete_key))
             .route("/list/", web::get().to(list_keys))
     })
+    .workers(1)
     .bind("127.0.0.1:8080")?
     .run()
     .await?;
@@ -66,7 +66,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn index() -> impl Responder {
-    "VBank Key-Value Store Online"
+    info!("Index page requested");
+    "VBank Key-Value Store v0.3.1 Online"
 }
 
 async fn get_key(
