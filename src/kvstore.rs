@@ -1,14 +1,39 @@
-use actix_web::{web, Responder};
-use serde::{Serialize, Deserialize};
-use serde_json::Value;
-use tracing::{info, warn};
-use std::error::Error;
-use std::fs;
-use std::io::{Read, Write};
-use std::{collections::BTreeMap, fs::File};
-use std::sync::{Arc, Mutex};
 use rand::{thread_rng, Rng};
 use rand_distr::Alphanumeric;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::error::Error;
+use std::fmt;
+use std::fs;
+use std::io::{Read, Write};
+use std::sync::{Arc, Mutex};
+use std::{collections::BTreeMap, fs::File};
+use tracing::{info, warn};
+
+#[derive(Debug)]
+struct KVStoreError {
+    message: String,
+}
+
+impl KVStoreError {
+    fn new(message: &str) -> Self {
+        KVStoreError {
+            message: message.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for KVStoreError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl Error for KVStoreError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct KV {
@@ -21,7 +46,6 @@ pub struct KVStore {
 }
 
 impl KVStore {
-
     pub fn new() -> Self {
         let kvs = KVStore {
             store: Arc::new(Mutex::new(BTreeMap::new())),
@@ -32,112 +56,111 @@ impl KVStore {
         kvs
     }
 
-    // Generate a 8 character string for the key
     fn generate_random_string(key_length: usize) -> String {
         let rng = thread_rng();
 
-        // Generate a random string of the given length
-        let chars: Vec<char> = rng.sample_iter(&Alphanumeric)
+        let chars: Vec<char> = rng
+            .sample_iter(&Alphanumeric)
             .map(|x| x as char)
             .take(key_length)
             .collect();
         chars.into_iter().collect()
     }
 
-    pub async fn create_key(&self, value: web::Json<Value>) -> impl Responder {
+    pub async fn create_key(&self, value: Value) -> Result<String, Box<dyn Error>> {
         let mut key = Self::generate_random_string(8);
         {
-            // Check if the key already exists in the database
             let mut kvs = self.store.lock().unwrap();
 
             while kvs.contains_key(&key) {
-                // Generate a new key if the key already exists
                 key = Self::generate_random_string(8);
             }
-            
-            // Insert the key-value pair into the database
+
             kvs.insert(key.to_string(), value.clone());
         }
-        
-        // Save the data to disk by calling the `write_kvstore` function.
+
         write_kvstore(&self.store).expect("Error writing to disk");
-        
+
         info!("Created key: {}", key);
-        
-        format!("Key created: {}", key)
+
+        Ok(format!("Key created: {}", key))
     }
 
-    pub async fn create_key_with_key(&self, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
+    pub async fn create_key_with_key(
+        &self,
+        key: String,
+        value: Value,
+    ) -> Result<String, Box<dyn Error>> {
         {
-            // Check if the key already exists in the database
             let mut kvs = self.store.lock().unwrap();
             if kvs.contains_key(&key.to_string()) {
-                return actix_web::HttpResponse::Conflict().body("Key already exists");
+                return Err(Box::new(KVStoreError::new("Key already exists")));
             }
-            
-            // Insert the key-value pair into the database
+
             kvs.insert(key.to_string(), value.clone());
         }
-        
-        // Save the data to disk by calling the `write_kvstore` function.
+
         write_kvstore(&self.store).expect("Error writing to disk");
-        
+
         info!("Created key: {}", key);
-        
-        actix_web::HttpResponse::Ok().body(format!("Key created: {}", key))
+
+        Ok(format!("Key created: {}", key))
     }
 
-    pub async fn insert(&self, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
+    pub async fn insert(&self, key: String, value: Value) -> Result<String, Box<dyn Error>> {
         let mut store = self.store.lock().unwrap();
 
         info!("Patched key: {}", key);
 
         store.insert(key.clone(), value.to_owned());
-        
-        actix_web::HttpResponse::Ok().body(format!("Key created: {}", key))
+
+        Ok(format!("Key created: {}", key))
     }
 
-    pub async fn get(&self, key: web::Path<String>) -> impl Responder {
-
+    pub async fn get(&self, key: String) -> Result<Value, Box<dyn Error>> {
         let store = self.store.lock().unwrap();
 
         if !store.contains_key(&key.to_string()) {
             warn!("Key not found: {}", key);
-            return actix_web::HttpResponse::NotFound().body("Key not found");
+            return Err(Box::new(KVStoreError::new(
+                format!("Key not found: {}", key).as_str(),
+            )));
         }
 
         info!("Grabbing key: {}", key);
 
-        actix_web::HttpResponse::Ok().body(store.get(&key.to_string()).unwrap().to_string())
+        Ok(store.get(&key.to_string()).unwrap().to_owned())
     }
 
-    pub async fn delete(&self, key: web::Path<String>) -> impl Responder {
+    pub async fn delete(&self, key: String) -> Result<String, Box<dyn Error>> {
         let mut store = self.store.lock().unwrap();
-        
+
         if store.contains_key(&key.to_string()) {
             store.remove(&key.to_string());
 
             info!("Deleted key: {}", key);
 
-            actix_web::HttpResponse::Ok().body(format!("Key deleted: {}", key))
+            Ok(format!("Key deleted: {}", key))
         } else {
-
             warn!("Delete error - Key not found: {}", key);
-            actix_web::HttpResponse::NotFound().body("Key not found")
+            Err(Box::new(KVStoreError::new(&format!(
+                "Key not found: {}",
+                key
+            ))))
         }
     }
 
-    pub async fn list_keys(&self, skip: Option<u64>, limit: Option<u64>) -> impl Responder {
+    pub async fn list_keys(
+        &self,
+        skip: Option<u64>,
+        limit: Option<u64>,
+    ) -> Result<Value, Box<dyn Error>> {
         let kvs = &self.store.lock().unwrap();
         let mut kv_list = Vec::new();
 
-        // Determine the skip and limit values. If they are not specified in the
-        // query parameters, the default values of 0 will be used.
         let skip = skip.unwrap_or(0);
         let limit = limit.unwrap_or(1000);
 
-        // Iterate over the keys and values in the `kvs` hash map, starting at
-        // the index specified by `skip`.
         let mut count = 0;
         for (key, value) in kvs.iter().skip(skip.clone() as usize) {
             if count >= limit {
@@ -152,12 +175,12 @@ impl KVStore {
 
         if count == 0 {
             info!("No documents found");
-            return actix_web::HttpResponse::NotFound().body("No keys found");
+            return Err(Box::new(KVStoreError::new("No documents found")));
         }
 
         info!("Returning {} keys after skipping {}", count, skip);
 
-        actix_web::HttpResponse::Ok().json(kv_list)
+        Ok(serde_json::json!(kv_list))
     }
 }
 
@@ -201,8 +224,6 @@ fn read_kvstore(kvstore: &Arc<Mutex<BTreeMap<String, Value>>>) -> Result<(), Box
             continue;
         }
 
-        // Use the `serde_json` crate to deserialize the value from JSON.
-        // Check if the value string starts and ends with double quotes, and remove them if it does.
         let value = if value.starts_with('"') && value.ends_with('"') {
             &value[1..value.len() - 1]
         } else {
@@ -221,18 +242,14 @@ fn read_kvstore(kvstore: &Arc<Mutex<BTreeMap<String, Value>>>) -> Result<(), Box
 pub fn write_kvstore(kvstore: &Arc<Mutex<BTreeMap<String, Value>>>) -> Result<(), Box<dyn Error>> {
     info!("Writing to data to disk");
 
-    // Handle the `Result` returned by `File::open`.
     let mut file = File::create("./database.vbank")?;
     let kvstore_file = kvstore.lock().unwrap();
     for (key, value) in kvstore_file.iter() {
-        // Use the `serde_json` crate to serialize the value to JSON.
         let json_value = serde_json::to_string(value)?;
         let encoded_value = base64::encode(&json_value);
 
-        // Check if the JSON string contains a pipe character, and escape it if it does.
         let json_value = encoded_value.replace("|", "\\|");
 
-        // Use a delimiter that cannot appear in the JSON string.
         file.write_all(format!("{}|{}\n", key, json_value).as_bytes())?;
     }
     Ok(())

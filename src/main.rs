@@ -12,8 +12,8 @@ use tracing::log::info;
 
 #[derive(Debug, Deserialize)]
 pub struct ListQuery {
-   skip: Option<u64>,
-   limit: Option<u64>,
+    skip: Option<u64>,
+    limit: Option<u64>,
 }
 
 fn print_ascii_art() {
@@ -27,7 +27,7 @@ fn print_ascii_art() {
     ███    ███  ▄███▄▄▄██▀    ███    ███ ███   ███  ▄█████▀    
     ███    ███ ▀▀███▀▀▀██▄  ▀███████████ ███   ███ ▀▀█████▄    
     ███    ███   ███    ██▄   ███    ███ ███   ███   ███▐██▄   
-    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.3.1
+    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.4.0
      ▀██████▀  ▄█████████▀    ███    █▀   ▀█   █▀    ███   ▀█▀  by @JakePIXL
                                                      ▀                 
 "#
@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     print_ascii_art();
 
     info!("Starting in-memory key-value store");
-    
+
     let kvs: KVStore = KVStore::new();
 
     info!("Starting server");
@@ -67,35 +67,55 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 async fn index() -> impl Responder {
     info!("Index page requested");
-    "VBank Key-Value Store v0.3.1 Online"
+    "VBank Key-Value Store v0.4.0 Online"
 }
 
-async fn get_key(
-    kvs: web::Data<KVStore>,
-    key: web::Path<String>,
-) -> impl Responder {
-    kvs.get(key).await
+async fn get_key(kvs: web::Data<KVStore>, key: web::Path<String>) -> impl Responder {
+    match kvs.get(key.clone()).await {
+        Ok(response) => actix_web::HttpResponse::Ok().json(response),
+        Err(e) => actix_web::HttpResponse::NotFound().body(e.to_string()),
+    }
 }
 
 async fn create_key(kvs: web::Data<KVStore>, value: web::Json<Value>) -> impl Responder {
-    kvs.create_key(value).await
+    match kvs.create_key(value.clone()).await {
+        Ok(response) => actix_web::HttpResponse::Created().body(response),
+        Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
+    }
 }
 
-async fn create_key_with_key(kvs: web::Data<KVStore>, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
-    kvs.create_key_with_key(key, value).await
+async fn create_key_with_key(
+    kvs: web::Data<KVStore>,
+    key: web::Path<String>,
+    value: web::Json<Value>,
+) -> impl Responder {
+    match kvs.create_key_with_key(key.clone(), value.clone()).await {
+        Ok(response) => actix_web::HttpResponse::Created().body(response),
+        Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
+    }
 }
-    
-async fn update_key(kvs: web::Data<KVStore>, key: web::Path<String>, value: web::Json<Value>) -> impl Responder {
-    kvs.insert(key, value).await
+
+async fn update_key(
+    kvs: web::Data<KVStore>,
+    key: web::Path<String>,
+    value: web::Json<Value>,
+) -> impl Responder {
+    match kvs.insert(key.clone(), value.clone()).await {
+        Ok(response) => actix_web::HttpResponse::Ok().body(response),
+        Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
+    }
 }
 
 async fn delete_key(kvs: web::Data<KVStore>, key: web::Path<String>) -> impl Responder {
-    kvs.delete(key).await
+    match kvs.delete(key.clone()).await {
+        Ok(response) => actix_web::HttpResponse::Ok().body(response),
+        Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
+    }
 }
 
-async fn list_keys(
-    kvs: web::Data<KVStore>,
-    query: web::Query<ListQuery>
-) -> impl Responder {
-    kvs.list_keys(query.skip, query.limit).await
+async fn list_keys(kvs: web::Data<KVStore>, query: web::Query<ListQuery>) -> impl Responder {
+    match kvs.list_keys(query.skip, query.limit).await {
+        Ok(response) => actix_web::HttpResponse::Ok().json(response),
+        Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
+    }
 }
