@@ -27,7 +27,7 @@ fn print_ascii_art() {
     ███    ███  ▄███▄▄▄██▀    ███    ███ ███   ███  ▄█████▀    
     ███    ███ ▀▀███▀▀▀██▄  ▀███████████ ███   ███ ▀▀█████▄    
     ███    ███   ███    ██▄   ███    ███ ███   ███   ███▐██▄   
-    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.4.0
+    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.4.1
      ▀██████▀  ▄█████████▀    ███    █▀   ▀█   █▀    ███   ▀█▀  by @JakePIXL
                                                      ▀                 
 "#
@@ -67,7 +67,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 async fn index() -> impl Responder {
     info!("Index page requested");
-    "VBank Key-Value Store v0.4.0 Online"
+    "VBank Key-Value Store v0.4.1 Online"
 }
 
 async fn get_key(kvs: web::Data<KVStore>, key: web::Path<String>) -> impl Responder {

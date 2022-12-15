@@ -3,37 +3,14 @@ use rand_distr::Alphanumeric;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::error::Error;
-use std::fmt;
 use std::fs;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use std::{collections::BTreeMap, fs::File};
 use tracing::{info, warn};
 
-#[derive(Debug)]
-struct KVStoreError {
-    message: String,
-}
-
-impl KVStoreError {
-    fn new(message: &str) -> Self {
-        KVStoreError {
-            message: message.to_string(),
-        }
-    }
-}
-
-impl fmt::Display for KVStoreError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl Error for KVStoreError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        None
-    }
-}
+mod errors;
+use errors::KVStoreError;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct KV {
