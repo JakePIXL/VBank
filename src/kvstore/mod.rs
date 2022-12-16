@@ -25,6 +25,9 @@ pub struct KVStore {
 
 impl KVStore {
     pub fn new() -> Self {
+
+        info!("Starting in-memory key-value store");
+
         let kvs = KVStore {
             store: Arc::new(Mutex::new(BTreeMap::new())),
         };
@@ -45,7 +48,7 @@ impl KVStore {
         chars.into_iter().collect()
     }
 
-    pub async fn create_key(&self, namespace: String, value: Value) -> Result<String, Box<dyn Error>> {
+    pub async fn create_document(&self, namespace: String, value: Value) -> Result<String, Box<dyn Error>> {
 
         _ = namespace;
 
@@ -66,12 +69,12 @@ impl KVStore {
 
         write_kvstore(&self.store).expect("Error writing to disk");
 
-        info!("Created key: {}", key);
+        info!("Document created: {}", key);
 
-        Ok(format!("Key created: {}", key))
+        Ok(format!("Document created: {}", key))
     }
 
-    pub async fn create_key_with_key(
+    pub async fn create_document_with_key(
         &self,
         namespace: String,
         key: String,
@@ -83,7 +86,7 @@ impl KVStore {
         {
             let mut kvs = self.store.lock().unwrap();
             if kvs.contains_key(&key.to_string()) {
-                return Err(Box::new(KVStoreError::new("Key already exists")));
+                return Err(Box::new(KVStoreError::new(&format!("Document already exists with key: {}", key))));
             }
 
             let string_value = serde_json::to_string(&value).unwrap();
@@ -95,9 +98,9 @@ impl KVStore {
 
         write_kvstore(&self.store).expect("Error writing to disk");
 
-        info!("Created key: {}", key);
+        info!("Document created: {}", key);
 
-        Ok(format!("Key created: {}", key))
+        Ok(format!("Document created: {}", key))
     }
 
     pub async fn insert(&self, namespace: String, key: String, value: Value) -> Result<String, Box<dyn Error>> {
@@ -106,7 +109,7 @@ impl KVStore {
         
         let mut store = self.store.lock().unwrap();
 
-        info!("Patched key: {}", key);
+        info!("Document updated: {}", key);
 
         let string_value = serde_json::to_string(&value).unwrap();
 
@@ -114,7 +117,7 @@ impl KVStore {
 
         store.insert(key.clone(), encoded_value);
 
-        Ok(format!("Key created: {}", key))
+        Ok(format!("Document updated: {}", key))
     }
 
     pub async fn get(&self, namespace: String, key: String) -> Result<Value, Box<dyn Error>> {
@@ -124,9 +127,9 @@ impl KVStore {
         let store = self.store.lock().unwrap();
 
         if !store.contains_key(&key) {
-            warn!("Key not found: {}", key);
+            warn!("Document not found: {}", key);
             return Err(Box::new(KVStoreError::new(
-                format!("Key not found: {}", key).as_str(),
+                format!("Document not found: {}", key).as_str(),
             )));
         }
 
@@ -152,19 +155,19 @@ impl KVStore {
         if store.contains_key(&key.to_string()) {
             store.remove(&key.to_string());
 
-            info!("Deleted key: {}", key);
+            info!("Document deleted: {}", key);
 
-            Ok(format!("Key deleted: {}", key))
+            Ok(format!("Document deleted: {}", key))
         } else {
-            warn!("Delete error - Key not found: {}", key);
+            warn!("Delete error - Document not found: {}", key);
             Err(Box::new(KVStoreError::new(&format!(
-                "Key not found: {}",
+                "Document not found: {}",
                 key
             ))))
         }
     }
 
-    pub async fn list_keys(
+    pub async fn list_documents(
         &self,
         namespace: String,
         skip: Option<u64>,
@@ -201,7 +204,7 @@ impl KVStore {
             return Err(Box::new(KVStoreError::new("No documents found")));
         }
 
-        info!("Returning {} keys after skipping {}", count, skip);
+        info!("Returning {} documents after skipping {}", count, skip);
 
         Ok(serde_json::json!(kv_list))
     }
@@ -261,7 +264,7 @@ fn read_kvstore(kvstore: &Arc<Mutex<BTreeMap<String, String>>>) -> Result<(), Bo
         kvstore_file.insert(key.to_string(), value.to_string());
     }
     let count = kvstore_file.len();
-    info!("Loaded {} keys from disk", count);
+    info!("Loaded {} documents from disk", count);
     Ok(())
 }
 

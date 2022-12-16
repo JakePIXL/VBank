@@ -17,8 +17,6 @@ mod kvstore;
 use kvstore::KVStore;
 use tracing::log::info;
 
-// use crate::kvstore::read_kvstore;
-
 #[derive(Debug, Deserialize)]
 pub struct ListQuery {
     skip: Option<u64>,
@@ -36,7 +34,7 @@ fn print_ascii_art() {
     ███    ███  ▄███▄▄▄██▀    ███    ███ ███   ███  ▄█████▀    
     ███    ███ ▀▀███▀▀▀██▄  ▀███████████ ███   ███ ▀▀█████▄    
     ███    ███   ███    ██▄   ███    ███ ███   ███   ███▐██▄   
-    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.6.0
+    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.6.1
      ▀██████▀  ▄█████████▀    ███    █▀   ▀█   █▀    ███   ▀█▀  by @JakePIXL
                                                      ▀                 
 "#
@@ -49,22 +47,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     print_ascii_art();
 
-    info!("Starting in-memory key-value store");
-
     let kvs: KVStore = KVStore::new();
-
-    info!("Starting server");
 
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(kvs.clone()))
             .service(index)
             .service(get_key)
-            .service(create_key)
-            .service(create_key_with_key)
-            .service(update_key)
-            .service(delete_key)
-            .service(list_keys)
+            .service(create_document)
+            .service(create_document_with_key)
+            .service(update_document)
+            .service(delete_document)
+            .service(list_documents)
     })
     .workers(1)
     .bind("127.0.0.1:8080")?
@@ -77,7 +71,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 #[get("/")]
 async fn index() -> impl Responder {
     info!("Index page requested");
-    "VBank Key-Value Store v0.6.0 Online"
+    "VBank Key-Value Store v0.6.1 Online"
 }
 
 #[get("/{namespace}/{key}")]
@@ -92,15 +86,15 @@ async fn get_key(kvs: web::Data<KVStore>, path: web::Path<(String, String)>) -> 
 }
 
 #[put("/{namespace}/")]
-async fn create_key(kvs: web::Data<KVStore>, namespace: web::Path<String>, value: web::Json<Value>) -> impl Responder {
-    match kvs.create_key(namespace.clone(), value.clone()).await {
+async fn create_document(kvs: web::Data<KVStore>, namespace: web::Path<String>, value: web::Json<Value>) -> impl Responder {
+    match kvs.create_document(namespace.clone(), value.clone()).await {
         Ok(response) => actix_web::HttpResponse::Created().body(response),
         Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
 
 #[put("/{namespace}/{key}")]
-async fn create_key_with_key(
+async fn create_document_with_key(
     kvs: web::Data<KVStore>,
     path: web::Path<(String, String)>,
     value: web::Json<Value>,
@@ -108,14 +102,14 @@ async fn create_key_with_key(
 
     let (namespace, key) = path.into_inner();
 
-    match kvs.create_key_with_key(namespace.clone(), key.clone(), value.clone()).await {
+    match kvs.create_document_with_key(namespace.clone(), key.clone(), value.clone()).await {
         Ok(response) => actix_web::HttpResponse::Created().body(response),
         Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
 
 #[patch("/{namespace}/{key}")]
-async fn update_key(
+async fn update_document(
     kvs: web::Data<KVStore>,
     path: web::Path<(String, String)>,
     value: web::Json<Value>,
@@ -130,7 +124,7 @@ async fn update_key(
 }
 
 #[delete("/{namespace}/{key}")]
-async fn delete_key(kvs: web::Data<KVStore>, path: web::Path<(String, String)>) -> impl Responder {
+async fn delete_document(kvs: web::Data<KVStore>, path: web::Path<(String, String)>) -> impl Responder {
 
     let (namespace, key) = path.into_inner();
 
@@ -141,8 +135,8 @@ async fn delete_key(kvs: web::Data<KVStore>, path: web::Path<(String, String)>) 
 }
 
 #[get("/{namespace}/list/")]
-async fn list_keys(kvs: web::Data<KVStore>, namespace: web::Path<String>, query: web::Query<ListQuery>) -> impl Responder {
-    match kvs.list_keys(namespace.clone(), query.skip, query.limit).await {
+async fn list_documents(kvs: web::Data<KVStore>, namespace: web::Path<String>, query: web::Query<ListQuery>) -> impl Responder {
+    match kvs.list_documents(namespace.clone(), query.skip, query.limit).await {
         Ok(response) => actix_web::HttpResponse::Ok().json(response),
         Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
     }
