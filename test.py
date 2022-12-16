@@ -3,7 +3,7 @@ import time
 from threading import Thread
 
 # the base URL of the database
-base_url = "http://localhost:8080"
+base_url = "http://localhost:8080/testing"
 
 # the number of parallel threads to use
 num_threads = 100
@@ -68,7 +68,7 @@ def run_threaded_requests():
     request_functions = [make_test_key, make_second_test_key, put_request, get_request, patch_request, delete_request, list_request]
 
     # make the requests in parallel
-    for num_requests in range(1, 1000, 100):
+    for num_requests in range(1, 900, 100):
         # reset the timer
         start_time = time.time()
         

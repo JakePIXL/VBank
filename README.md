@@ -2,6 +2,7 @@
 
 This is a simple key-value store implemented in Rust using the [Actix web framework](https://actix.rs).
 > **Warning**
+>
 > Do NOT use this in production and do NOT ask for support as this was a proof of concept.
 > Error when using, sometime only one thread gets an item.
 
@@ -18,27 +19,33 @@ This will compile the project and start the server on http://127.0.0.1:8080.
 ## Using the Requests
 Once the server is running, you can use the following requests to interact with the key-value store:
 
-`GET /`
+> **Note**
+>
+> namespaces are only a placeholder, they will all lead to the same node (the only node)
+> the node will write to the same file database.vbank
+
+
+`GET /{namespace}/`
 
 This request will return a simple message indicating that the server is running.
 
-`GET /{key}`
+`GET /{namespace}/{key}`
 
 This request will return the value associated with the given key in the key-value store. If the key does not exist, it will return a 404 error.
 
-`PUT /`
+`PUT /{namespace}/`
 
 This request will insert the given value into the key-value store and will generate a new key.
 
-`PUT /{key}`
+`PUT /{namespace}/{key}`
 
 This request will insert the given key and value into the key-value store.
 
-`DELETE /{key}`
+`DELETE /{namespace}/{key}`
 
 This request will delete the given key and its associated value from the key-value store. If the key does not exist, it will return a 404 error.
 
-`GET /list/`
+`GET /{namespace}/list/`
 
 This request will return a list of all keys in the key-value store.
 
@@ -48,22 +55,22 @@ Here are some examples of how you can use these requests to interact with the ke
 
 ```bash
 # Check if the server is running
-curl http://127.0.0.1:8080/
+curl http://127.0.0.1:8080/posts/
 
 # Insert a key-value pair
-curl -X PUT http://127.0.0.1:8080/new-post -d '{"title": "Cool Post", "content": "my cool post"}' -H "Content-Type: application/json"
+curl -X PUT http://127.0.0.1:8080/posts/new-post -d '{"title": "Cool Post", "content": "my cool post"}' -H "Content-Type: application/json"
 
 # Insert a value
-curl -X PUT http://127.0.0.1:8080/ -d '{"title": "Cooler Post", "content": "my cooler post"}' -H "Content-Type: application/json"
+curl -X PUT http://127.0.0.1:8080/posts/ -d '{"title": "Cooler Post", "content": "my cooler post"}' -H "Content-Type: application/json"
 
 # Get the value associated with a key
-curl http://127.0.0.1:8080/new-post
+curl http://127.0.0.1:8080/posts/new-post
 
 # Delete a key-value pair
-curl -X DELETE http://127.0.0.1:8080/new-post
+curl -X DELETE http://127.0.0.1:8080/posts/new-post
 
 # Get a list of all keys in the key-value store
-curl http://127.0.0.1:8080/list/?skip=0&limit=1000
+curl http://127.0.0.1:8080/posts/list/?skip=0&limit=1000
 ```
 
 
@@ -71,21 +78,42 @@ curl http://127.0.0.1:8080/list/?skip=0&limit=1000
 
 hard limit of requests it can take with an item of
 
-data:
-`JrhG1ePu|{"key":"value"}`
+test data:
+```json
+// Test Data
+{
+    "title": "Title",
+    "description": "Test Description",
+    "price": 100.00,
+    "quantity": 100,
+    "category": "test_category",
+    "image": "test_image",
+    "rating": 5.0,
+}
+
+// Updated Test Data
+{
+    "title": "New Title",
+    "description": "New Test Description",
+    "price": 95.99,
+    "quantity": 25,
+    "category": "test_category",
+    "image": "new_test_image",
+    "rating": 5.5,
+}
+```
 
 output:
 ```
-Made 1 requests in 0.00011587142944335938 seconds using 100 threads.
-Made 101 requests in 0.0737149715423584 seconds using 100 threads.
-Made 201 requests in 0.1371469497680664 seconds using 100 threads.
-Made 301 requests in 0.20068883895874023 seconds using 100 threads.
-Made 401 requests in 0.2744600772857666 seconds using 100 threads.
-Made 501 requests in 0.3543989658355713 seconds using 100 threads.
-Made 601 requests in 0.4169590473175049 seconds using 100 threads.
-Made 701 requests in 0.5468730926513672 seconds using 100 threads.
-Made 801 requests in 0.5518231391906738 seconds using 100 threads.
-Made 901 requests in 0.7367067337036133 seconds using 100 threads.
+Made 1 requests in 0.00018310546875 seconds using 100 threads.
+Made 101 requests in 0.07857799530029297 seconds using 100 threads.
+Made 201 requests in 0.14663195610046387 seconds using 100 threads.
+Made 301 requests in 0.22292494773864746 seconds using 100 threads.
+Made 401 requests in 0.3342561721801758 seconds using 100 threads.
+Made 501 requests in 0.39011693000793457 seconds using 100 threads.
+Made 601 requests in 0.4560239315032959 seconds using 100 threads.
+Made 701 requests in 0.5776610374450684 seconds using 100 threads.
+Made 801 requests in 0.710881233215332 seconds using 100 threads.
 ```
 
 system info:
