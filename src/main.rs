@@ -49,13 +49,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(kvs.clone()))
-            .route("/", web::get().to(index))
-            .route("/", web::put().to(create_key))
-            .route("/{key}", web::get().to(get_key))
-            .route("/{key}", web::put().to(create_key_with_key))
-            .route("/{key}", web::patch().to(update_key))
-            .route("/{key}", web::delete().to(delete_key))
-            .route("/list/", web::get().to(list_keys))
+            .route("/{namespace}/", web::get().to(index))
+            .route("/{namespace}/", web::put().to(create_key))
+            .route("/{namespace}/{key}", web::get().to(get_key))
+            .route("/{namespace}/{key}", web::put().to(create_key_with_key))
+            .route("/{namespace}/{key}", web::patch().to(update_key))
+            .route("/{namespace}/{key}", web::delete().to(delete_key))
+            .route("/{namespace}/list/", web::get().to(list_keys))
     })
     .workers(1)
     .bind("127.0.0.1:8080")?
@@ -70,15 +70,15 @@ async fn index() -> impl Responder {
     "VBank Key-Value Store v0.4.1 Online"
 }
 
-async fn get_key(kvs: web::Data<KVStore>, key: web::Path<String>) -> impl Responder {
-    match kvs.get(key.clone()).await {
+async fn get_key(kvs: web::Data<KVStore>, namespace: web::Path<String>, key: web::Path<String>) -> impl Responder {
+    match kvs.get(namespace.clone(), key.clone()).await {
         Ok(response) => actix_web::HttpResponse::Ok().json(response),
         Err(e) => actix_web::HttpResponse::NotFound().body(e.to_string()),
     }
 }
 
-async fn create_key(kvs: web::Data<KVStore>, value: web::Json<Value>) -> impl Responder {
-    match kvs.create_key(value.clone()).await {
+async fn create_key(kvs: web::Data<KVStore>, namespace: web::Path<String>, value: web::Json<Value>) -> impl Responder {
+    match kvs.create_key(namespace.clone(), value.clone()).await {
         Ok(response) => actix_web::HttpResponse::Created().body(response),
         Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
     }
@@ -86,10 +86,11 @@ async fn create_key(kvs: web::Data<KVStore>, value: web::Json<Value>) -> impl Re
 
 async fn create_key_with_key(
     kvs: web::Data<KVStore>,
+    namespace: web::Path<String>,
     key: web::Path<String>,
     value: web::Json<Value>,
 ) -> impl Responder {
-    match kvs.create_key_with_key(key.clone(), value.clone()).await {
+    match kvs.create_key_with_key(namespace.clone(), key.clone(), value.clone()).await {
         Ok(response) => actix_web::HttpResponse::Created().body(response),
         Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
     }
@@ -97,24 +98,25 @@ async fn create_key_with_key(
 
 async fn update_key(
     kvs: web::Data<KVStore>,
+    namespace: web::Path<String>,
     key: web::Path<String>,
     value: web::Json<Value>,
 ) -> impl Responder {
-    match kvs.insert(key.clone(), value.clone()).await {
+    match kvs.insert(namespace.clone(), key.clone(), value.clone()).await {
         Ok(response) => actix_web::HttpResponse::Ok().body(response),
         Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
 
-async fn delete_key(kvs: web::Data<KVStore>, key: web::Path<String>) -> impl Responder {
-    match kvs.delete(key.clone()).await {
+async fn delete_key(kvs: web::Data<KVStore>, namespace: web::Path<String>, key: web::Path<String>) -> impl Responder {
+    match kvs.delete(namespace.clone(), key.clone()).await {
         Ok(response) => actix_web::HttpResponse::Ok().body(response),
         Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
 
-async fn list_keys(kvs: web::Data<KVStore>, query: web::Query<ListQuery>) -> impl Responder {
-    match kvs.list_keys(query.skip, query.limit).await {
+async fn list_keys(kvs: web::Data<KVStore>, namespace: web::Path<String>, query: web::Query<ListQuery>) -> impl Responder {
+    match kvs.list_keys(namespace.clone(), query.skip, query.limit).await {
         Ok(response) => actix_web::HttpResponse::Ok().json(response),
         Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
     }

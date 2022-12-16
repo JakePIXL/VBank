@@ -44,7 +44,10 @@ impl KVStore {
         chars.into_iter().collect()
     }
 
-    pub async fn create_key(&self, value: Value) -> Result<String, Box<dyn Error>> {
+    pub async fn create_key(&self, namespace: String, value: Value) -> Result<String, Box<dyn Error>> {
+
+        _ = namespace;
+
         let mut key = Self::generate_random_string(8);
         {
             let mut kvs = self.store.lock().unwrap();
@@ -65,9 +68,13 @@ impl KVStore {
 
     pub async fn create_key_with_key(
         &self,
+        namespace: String,
         key: String,
         value: Value,
     ) -> Result<String, Box<dyn Error>> {
+
+        _ = namespace;
+
         {
             let mut kvs = self.store.lock().unwrap();
             if kvs.contains_key(&key.to_string()) {
@@ -84,7 +91,10 @@ impl KVStore {
         Ok(format!("Key created: {}", key))
     }
 
-    pub async fn insert(&self, key: String, value: Value) -> Result<String, Box<dyn Error>> {
+    pub async fn insert(&self, namespace: String, key: String, value: Value) -> Result<String, Box<dyn Error>> {
+
+        _ = namespace;
+        
         let mut store = self.store.lock().unwrap();
 
         info!("Patched key: {}", key);
@@ -94,7 +104,10 @@ impl KVStore {
         Ok(format!("Key created: {}", key))
     }
 
-    pub async fn get(&self, key: String) -> Result<Value, Box<dyn Error>> {
+    pub async fn get(&self, namespace: String, key: String) -> Result<Value, Box<dyn Error>> {
+
+        _ = namespace;
+        
         let store = self.store.lock().unwrap();
 
         if !store.contains_key(&key.to_string()) {
@@ -109,7 +122,10 @@ impl KVStore {
         Ok(store.get(&key.to_string()).unwrap().to_owned())
     }
 
-    pub async fn delete(&self, key: String) -> Result<String, Box<dyn Error>> {
+    pub async fn delete(&self, namespace: String, key: String) -> Result<String, Box<dyn Error>> {
+
+        _ = namespace;
+        
         let mut store = self.store.lock().unwrap();
 
         if store.contains_key(&key.to_string()) {
@@ -129,9 +145,13 @@ impl KVStore {
 
     pub async fn list_keys(
         &self,
+        namespace: String,
         skip: Option<u64>,
         limit: Option<u64>,
     ) -> Result<Value, Box<dyn Error>> {
+
+        _ = namespace;
+        
         let kvs = &self.store.lock().unwrap();
         let mut kv_list = Vec::new();
 
