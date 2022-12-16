@@ -1,6 +1,15 @@
 use std::error::Error;
 
-use actix_web::{web, App, HttpServer, Responder};
+use actix_web::{
+    web,
+    App,
+    HttpServer,
+    Responder,
+    get,
+    put,
+    patch,
+    delete,
+};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -27,7 +36,7 @@ fn print_ascii_art() {
     ███    ███  ▄███▄▄▄██▀    ███    ███ ███   ███  ▄█████▀    
     ███    ███ ▀▀███▀▀▀██▄  ▀███████████ ███   ███ ▀▀█████▄    
     ███    ███   ███    ██▄   ███    ███ ███   ███   ███▐██▄   
-    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.5.0
+    ███    ███   ███    ███   ███    ███ ███   ███   ███ ▀███▄  v0.6.0
      ▀██████▀  ▄█████████▀    ███    █▀   ▀█   █▀    ███   ▀█▀  by @JakePIXL
                                                      ▀                 
 "#
@@ -49,13 +58,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(kvs.clone()))
-            .route("/{namespace}/", web::get().to(index))
-            .route("/{namespace}/", web::put().to(create_key))
-            .route("/{namespace}/{key}", web::get().to(get_key))
-            .route("/{namespace}/{key}", web::put().to(create_key_with_key))
-            .route("/{namespace}/{key}", web::patch().to(update_key))
-            .route("/{namespace}/{key}", web::delete().to(delete_key))
-            .route("/{namespace}/list/", web::get().to(list_keys))
+            .service(index)
+            .service(get_key)
+            .service(create_key)
+            .service(create_key_with_key)
+            .service(update_key)
+            .service(delete_key)
+            .service(list_keys)
     })
     .workers(1)
     .bind("127.0.0.1:8080")?
@@ -65,18 +74,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[get("/")]
 async fn index() -> impl Responder {
     info!("Index page requested");
-    "VBank Key-Value Store v0.5.0 Online"
+    "VBank Key-Value Store v0.6.0 Online"
 }
 
-async fn get_key(kvs: web::Data<KVStore>, namespace: web::Path<String>, key: web::Path<String>) -> impl Responder {
+#[get("/{namespace}/{key}")]
+async fn get_key(kvs: web::Data<KVStore>, path: web::Path<(String, String)>) -> impl Responder {
+
+    let (namespace, key) = path.into_inner();
+
     match kvs.get(namespace.clone(), key.clone()).await {
         Ok(response) => actix_web::HttpResponse::Ok().json(response),
         Err(e) => actix_web::HttpResponse::NotFound().body(e.to_string()),
     }
 }
 
+#[put("/{namespace}/")]
 async fn create_key(kvs: web::Data<KVStore>, namespace: web::Path<String>, value: web::Json<Value>) -> impl Responder {
     match kvs.create_key(namespace.clone(), value.clone()).await {
         Ok(response) => actix_web::HttpResponse::Created().body(response),
@@ -84,37 +99,48 @@ async fn create_key(kvs: web::Data<KVStore>, namespace: web::Path<String>, value
     }
 }
 
+#[put("/{namespace}/{key}")]
 async fn create_key_with_key(
     kvs: web::Data<KVStore>,
-    namespace: web::Path<String>,
-    key: web::Path<String>,
+    path: web::Path<(String, String)>,
     value: web::Json<Value>,
 ) -> impl Responder {
+
+    let (namespace, key) = path.into_inner();
+
     match kvs.create_key_with_key(namespace.clone(), key.clone(), value.clone()).await {
         Ok(response) => actix_web::HttpResponse::Created().body(response),
         Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
 
+#[patch("/{namespace}/{key}")]
 async fn update_key(
     kvs: web::Data<KVStore>,
-    namespace: web::Path<String>,
-    key: web::Path<String>,
+    path: web::Path<(String, String)>,
     value: web::Json<Value>,
 ) -> impl Responder {
+
+    let (namespace, key) = path.into_inner();
+
     match kvs.insert(namespace.clone(), key.clone(), value.clone()).await {
         Ok(response) => actix_web::HttpResponse::Ok().body(response),
         Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
 
-async fn delete_key(kvs: web::Data<KVStore>, namespace: web::Path<String>, key: web::Path<String>) -> impl Responder {
+#[delete("/{namespace}/{key}")]
+async fn delete_key(kvs: web::Data<KVStore>, path: web::Path<(String, String)>) -> impl Responder {
+
+    let (namespace, key) = path.into_inner();
+
     match kvs.delete(namespace.clone(), key.clone()).await {
         Ok(response) => actix_web::HttpResponse::Ok().body(response),
         Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
 
+#[get("/{namespace}/list/")]
 async fn list_keys(kvs: web::Data<KVStore>, namespace: web::Path<String>, query: web::Query<ListQuery>) -> impl Responder {
     match kvs.list_keys(namespace.clone(), query.skip, query.limit).await {
         Ok(response) => actix_web::HttpResponse::Ok().json(response),

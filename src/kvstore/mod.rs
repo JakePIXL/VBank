@@ -1,3 +1,4 @@
+use base64::decode;
 use rand::{thread_rng, Rng};
 use rand_distr::Alphanumeric;
 use serde::{Deserialize, Serialize};
@@ -19,7 +20,7 @@ struct KV {
 }
 
 pub struct KVStore {
-    pub store: Arc<Mutex<BTreeMap<String, Value>>>,
+    pub store: Arc<Mutex<BTreeMap<String, String>>>,
 }
 
 impl KVStore {
@@ -56,7 +57,11 @@ impl KVStore {
                 key = Self::generate_random_string(8);
             }
 
-            kvs.insert(key.to_string(), value.clone());
+            let string_value = serde_json::to_string(&value).unwrap();
+    
+            let encoded_value = base64::encode(string_value);
+
+            kvs.insert(key.to_string(), encoded_value);
         }
 
         write_kvstore(&self.store).expect("Error writing to disk");
@@ -81,7 +86,11 @@ impl KVStore {
                 return Err(Box::new(KVStoreError::new("Key already exists")));
             }
 
-            kvs.insert(key.to_string(), value.clone());
+            let string_value = serde_json::to_string(&value).unwrap();
+    
+            let encoded_value = base64::encode(string_value);
+
+            kvs.insert(key.to_string(), encoded_value);
         }
 
         write_kvstore(&self.store).expect("Error writing to disk");
@@ -99,18 +108,22 @@ impl KVStore {
 
         info!("Patched key: {}", key);
 
-        store.insert(key.clone(), value.to_owned());
+        let string_value = serde_json::to_string(&value).unwrap();
+
+        let encoded_value = base64::encode(string_value);
+
+        store.insert(key.clone(), encoded_value);
 
         Ok(format!("Key created: {}", key))
     }
 
     pub async fn get(&self, namespace: String, key: String) -> Result<Value, Box<dyn Error>> {
-
-        _ = namespace;
         
+        _ = namespace;
+
         let store = self.store.lock().unwrap();
 
-        if !store.contains_key(&key.to_string()) {
+        if !store.contains_key(&key) {
             warn!("Key not found: {}", key);
             return Err(Box::new(KVStoreError::new(
                 format!("Key not found: {}", key).as_str(),
@@ -119,7 +132,15 @@ impl KVStore {
 
         info!("Grabbing key: {}", key);
 
-        Ok(store.get(&key.to_string()).unwrap().to_owned())
+        let value = store.get(&key).unwrap();
+
+        let decoded_value = decode(value.to_owned()).unwrap();
+
+        let json_value: Value = serde_json::from_slice(&decoded_value).unwrap();
+
+        // info!("{}", serde_json::from_value::<String>(json_value.clone()).unwrap());
+
+        Ok(json_value)
     }
 
     pub async fn delete(&self, namespace: String, key: String) -> Result<String, Box<dyn Error>> {
@@ -163,9 +184,14 @@ impl KVStore {
             if count >= limit {
                 break;
             }
+
+            let decoded_value = decode(value.to_owned()).unwrap();
+
+            let json_value: Value = serde_json::from_slice(&decoded_value).unwrap();
+
             kv_list.push(KV {
                 key: key.to_string(),
-                data: value.clone(),
+                data: json_value,
             });
             count += 1;
         }
@@ -207,14 +233,19 @@ fn check_file_exists() -> File {
     }
 }
 
-fn read_kvstore(kvstore: &Arc<Mutex<BTreeMap<String, Value>>>) -> Result<(), Box<dyn Error>> {
+fn read_kvstore(kvstore: &Arc<Mutex<BTreeMap<String, String>>>) -> Result<(), Box<dyn Error>> {
     let mut file = check_file_exists();
     let mut contents = String::new();
+
     file.read_to_string(&mut contents)?;
+
     let mut kvstore_file = kvstore.lock().unwrap();
+
     for line in contents.lines() {
         let mut kv = line.split("|");
+
         let key = kv.next().unwrap();
+
         let value = kv.next().unwrap_or("");
 
         if key.is_empty() || value.is_empty() {
@@ -226,28 +257,24 @@ fn read_kvstore(kvstore: &Arc<Mutex<BTreeMap<String, Value>>>) -> Result<(), Box
         } else {
             value
         };
-        let decoded_value = base64::decode(value)?;
-        let json_value = serde_json::from_slice(&decoded_value)?;
 
-        kvstore_file.insert(key.to_string(), json_value);
+        kvstore_file.insert(key.to_string(), value.to_string());
     }
     let count = kvstore_file.len();
     info!("Loaded {} keys from disk", count);
     Ok(())
 }
 
-pub fn write_kvstore(kvstore: &Arc<Mutex<BTreeMap<String, Value>>>) -> Result<(), Box<dyn Error>> {
+pub fn write_kvstore(kvstore: &Arc<Mutex<BTreeMap<String, String>>>) -> Result<(), Box<dyn Error>> {
     info!("Writing to data to disk");
 
     let mut file = File::create("./database.vbank")?;
     let kvstore_file = kvstore.lock().unwrap();
     for (key, value) in kvstore_file.iter() {
-        let json_value = serde_json::to_string(value)?;
-        let encoded_value = base64::encode(&json_value);
 
-        let json_value = encoded_value.replace("|", "\\|");
+        let value = value.replace("|", "\\|");
 
-        file.write_all(format!("{}|{}\n", key, json_value).as_bytes())?;
+        file.write_all(format!("{}|{}\n", key, value).as_bytes())?;
     }
     Ok(())
 }
